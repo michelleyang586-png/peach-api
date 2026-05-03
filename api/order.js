@@ -90,7 +90,12 @@ export default async function handler(req, res) {
     const token = await getAccessToken();
     const action = req.query.action;
 
-    // 一次讀取全部庫存（A2:E4）
+    // 偵錯模式：回傳原始資料
+    if (action === 'debug') {
+      const raw = await readRange(token, '庫存控制!A1:E4');
+      return res.json({ raw });
+    }
+
     const allStock = await readRange(token, '庫存控制!A2:E4');
 
     if (action === 'order') {
@@ -103,7 +108,6 @@ export default async function handler(req, res) {
       const specNames = ['大顆4粒', '大顆8粒禮盒', '中顆16粒'];
       const specPrices = [200, 450, 380];
 
-      // 寫入訂單總表
       for (let i = 0; i < 3; i++) {
         if (qtys[i] <= 0) continue;
         const specAmt = qtys[i] * specPrices[i];
@@ -116,7 +120,6 @@ export default async function handler(req, res) {
         ]]);
       }
 
-      // 更新各規格庫存
       for (let i = 0; i < 3; i++) {
         if (qtys[i] <= 0) continue;
         const row = allStock[i] || [];
@@ -126,7 +129,6 @@ export default async function handler(req, res) {
         await writeRange(token, '庫存控制!D' + (i + 2) + ':E' + (i + 2), [[newSold, total - newSold]]);
       }
 
-      // LINE 通知
       const shipping = deliveryType === '宅配' ? 200 : 0;
       const productAmount = amt - shipping;
       const emoji = deliveryType === '宅配' ? '❄️' : '🏪';
@@ -148,7 +150,6 @@ export default async function handler(req, res) {
       return res.json({ status: 'success', orderId });
 
     } else {
-      // 回傳庫存資料
       const stock = allStock.map(row => ({
         name: row[0] || '',
         price: Number(row[1]) || 0,
@@ -160,4 +161,4 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ status: 'error', message: err.message });
   }
-}  
+}
