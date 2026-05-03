@@ -1,12 +1,6 @@
 const LINE_TOKEN = '2pgUy78YYeH/bf+gL4MyCWxiQYA2XtFUPzWwIigkRj3/JBHy5Ee6Z92uOBkTYgo9kZYp5mBCfLybgd9VVLLb7hTPqb9VE2Q2d1lYMVPV3euPtDKYEuinsN0LcuxXCtpm9MIS9dLqvVphxhCTETYZmAdB04t89/1O/w1cDnyilFU=';
 const ADMIN_USER_ID = 'Uf86482255e83a7bcd1b70e70a50aef76';
-const SPREADSHEET_ID = 'xc1gKxDE7T_XUt2yPWXsagBQC8FYF0xQVD3jVmdi8dqF7I';
-
-const SPECS = [
-  { name: '大顆4粒', row: 'B2:E2' },
-  { name: '大顆8粒禮盒', row: 'B3:E3' },
-  { name: '中顆16粒', row: 'B4:E4' }
-];
+const SPREADSHEET_ID = '1gKxDE7T_XUt2yPWXsagBQC8FYF0xQVD3jVmdi8dqF7I';
 
 async function getAccessToken() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -96,6 +90,9 @@ export default async function handler(req, res) {
     const token = await getAccessToken();
     const action = req.query.action;
 
+    // 一次讀取全部庫存（A2:E4）
+    const allStock = await readRange(token, '庫存控制!A2:E4');
+
     if (action === 'order') {
       const { lineName, recipientName, phone, deliveryType, spec0, spec1, spec2, specSummary, amount, address, note } = req.query;
       const qtys = [parseInt(spec0) || 0, parseInt(spec1) || 0, parseInt(spec2) || 0];
@@ -103,15 +100,16 @@ export default async function handler(req, res) {
       const actualName = recipientName || lineName;
       const orderId = await generateOrderId(token, deliveryType);
       const timestamp = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+      const specNames = ['大顆4粒', '大顆8粒禮盒', '中顆16粒'];
+      const specPrices = [200, 450, 380];
 
-      // 寫入訂單總表（每個規格各一行）
+      // 寫入訂單總表
       for (let i = 0; i < 3; i++) {
         if (qtys[i] <= 0) continue;
-        const specPrice = [200, 450, 380][i];
-        const specAmt = qtys[i] * specPrice;
+        const specAmt = qtys[i] * specPrices[i];
         await appendRow(token, '訂單總表!A:M', [[
           orderId, timestamp, lineName, actualName, phone,
-          SPECS[i].name, deliveryType, qtys[i], specAmt,
+          specNames[i], deliveryType, qtys[i], specAmt,
           address || '自取', note || '',
           deliveryType === '宅配' ? '待匯款' : '貨到付款',
           '待出貨'
@@ -121,13 +119,11 @@ export default async function handler(req, res) {
       // 更新各規格庫存
       for (let i = 0; i < 3; i++) {
         if (qtys[i] <= 0) continue;
-        const stockValues = await readRange(token, '庫存控制!' + SPECS[i].row);
-        const row = stockValues[0];
-        const total = Number(row[1]);
-        const sold = Number(row[2]);
+        const row = allStock[i] || [];
+        const total = Number(row[2]) || 0;
+        const sold = Number(row[3]) || 0;
         const newSold = sold + qtys[i];
-        const stockWriteRange = '庫存控制!D' + (i + 2) + ':E' + (i + 2);
-        await writeRange(token, stockWriteRange, [[newSold, total - newSold]]);
+        await writeRange(token, '庫存控制!D' + (i + 2) + ':E' + (i + 2), [[newSold, total - newSold]]);
       }
 
       // LINE 通知
@@ -152,17 +148,16 @@ export default async function handler(req, res) {
       return res.json({ status: 'success', orderId });
 
     } else {
-      // 讀取三個規格的庫存
-      const stock = [];
-      for (let i = 0; i < 3; i++) {
-        const values = await readRange(token, '庫存控制!' + SPECS[i].row);
-        const row = values[0] || [0, 0, 0, 0];
-        stock.push({ name: SPECS[i].name, price: Number(row[0]), remaining: Number(row[3]) });
-      }
+      // 回傳庫存資料
+      const stock = allStock.map(row => ({
+        name: row[0] || '',
+        price: Number(row[1]) || 0,
+        remaining: Number(row[4]) || 0
+      }));
       return res.json({ stock });
     }
 
   } catch (err) {
     return res.status(500).json({ status: 'error', message: err.message });
   }
-}
+}  
