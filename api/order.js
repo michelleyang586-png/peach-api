@@ -211,12 +211,44 @@ export default async function handler(req, res) {
     // =========================
     
 const ORDER_COLORS = [
-  { red: 1, green: 0.95, blue: 0.95 }, // 粉
-  { red: 0.95, green: 0.98, blue: 1 }, // 藍
-  { red: 0.95, green: 1, blue: 0.95 }, // 綠
-  { red: 1, green: 0.98, blue: 0.9 }, // 黃
-  { red: 0.97, green: 0.95, blue: 1 } // 紫
+
+  // 粉
+  {
+    red: 1,
+    green: 0.85,
+    blue: 0.85
+  },
+
+  // 藍
+  {
+    red: 0.82,
+    green: 0.9,
+    blue: 1
+  },
+
+  // 綠
+  {
+    red: 0.82,
+    green: 0.95,
+    blue: 0.82
+  },
+
+  // 黃
+  {
+    red: 1,
+    green: 0.95,
+    blue: 0.75
+  },
+
+  // 紫
+  {
+    red: 0.9,
+    green: 0.85,
+    blue: 1
+  }
+
 ];
+    
 const specs = [
   {
     key: 'spec0',
@@ -381,14 +413,30 @@ if (totalUsed > remainStock) {
 // 訂單顏色
 // =========================
 
-const colorIndex =
-  Math.floor(
-    Math.random() *
-    ORDER_COLORS.length
+const rows =
+  await readRange(
+    token,
+    '訂單總表!A:A'
   );
 
+// 排除標題列
+
+const orderIds =
+  rows
+    .slice(1)
+    .map(r => r[0])
+    .filter(Boolean);
+
+// 不重複訂單數
+
+const uniqueOrders =
+  [...new Set(orderIds)];
+
 const color =
-  ORDER_COLORS[colorIndex];
+  ORDER_COLORS[
+    uniqueOrders.length %
+    ORDER_COLORS.length
+  ];
 
 // 第一列位置
 
