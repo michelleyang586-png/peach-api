@@ -260,54 +260,97 @@ const specs = [
       );
 
       // =========================
-      // 計算購買商品
-      // =========================
+// 計算購買商品
+// =========================
 
-      let totalUsed = 0;
+let totalUsed = 0;
 
-      let specSummary = [];
+let specSummary = [];
 
-      for (const item of specs) {
+let orderItems = [];
 
-        const qty =
-          parseInt(req.query[item.key]) || 0;
+// 整理所有商品
 
-        if (qty <= 0) continue;
+for (const item of specs) {
 
-        const used = qty * item.unit;
+  const qty =
+    parseInt(req.query[item.key]) || 0;
 
-        totalUsed += used;
+  if (qty <= 0) continue;
 
-        specSummary.push(
-          `${item.name} x ${qty}`
-        );
+  // 使用顆數
 
-        const itemAmount = qty * item.price;
+  const used = qty * item.unit;
 
-        // 寫入訂單總表
+  totalUsed += used;
 
-        await appendRow(
-          token,
-          '訂單總表!A:M',
-          [[
-            orderId,
-            timestamp,
-            lineName,
-            actualName,
-            phone,
-            item.name,
-            deliveryType,
-            qty,
-            itemAmount,
-            address || '自取',
-            note || '',
-            deliveryType === '宅配'
-              ? '待匯款'
-              : '貨到付款',
-            '待出貨'
-          ]]
-        );
-      }
+  // 訂單摘要
+
+  specSummary.push(
+    `${item.name} x ${qty}`
+  );
+
+  // 商品金額
+
+  const itemAmount =
+    qty * item.price;
+
+  // 暫存商品資料
+
+  orderItems.push({
+    item,
+    qty,
+    itemAmount
+  });
+}
+
+// 完整訂單摘要
+
+const summaryText =
+  specSummary.join('、');
+
+// =========================
+// 寫入訂單總表
+// =========================
+
+for (const row of orderItems) {
+
+  await appendRow(
+    token,
+    '訂單總表!A:N',
+    [[
+      orderId,
+      timestamp,
+      lineName,
+      actualName,
+      phone,
+
+      // 商品名稱
+      row.item.name,
+
+      deliveryType,
+
+      // 購買盒數
+      row.qty,
+
+      // 該商品金額
+      row.itemAmount,
+
+      address || '自取',
+
+      note || '',
+
+      deliveryType === '宅配'
+        ? '待匯款'
+        : '貨到付款',
+
+      '待出貨',
+
+      // 訂單摘要
+      summaryText
+    ]]
+  );
+}
 
       // =========================
       // 檢查庫存
