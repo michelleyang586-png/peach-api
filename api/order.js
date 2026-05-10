@@ -439,7 +439,7 @@ await colorRows(
   token,
   0,
   startRow,
-  startRow + orderItems.length,
+  startRow + orderItems.length + 1,
   color
 );
 
