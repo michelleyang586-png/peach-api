@@ -87,12 +87,14 @@ async function writeRange(token, range, values) {
 }
 
 async function appendRow(token, range, values) {
-  const encodedRange = encodeURIComponent(range);
+
+  const encodedRange =
+    encodeURIComponent(range);
 
   const url =
-    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodedRange}:append?valueInputOption=USER_ENTERED`;
+    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodedRange}:append?valueInputOption=USER_ENTERED&includeValuesInResponse=true`;
 
-  await fetch(url, {
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       Authorization: 'Bearer ' + token,
@@ -100,6 +102,10 @@ async function appendRow(token, range, values) {
     },
     body: JSON.stringify({ values })
   });
+
+  const data = await res.json();
+
+  return data;
 }
 async function colorRows(
   token,
@@ -371,30 +377,28 @@ if (totalUsed > remainStock) {
 // 寫入訂單總表
 // =========================
 
-// 取得目前列數
+// =========================
+// 訂單顏色
+// =========================
 
-const currentRows =
-  await readRange(
-    token,
-    '訂單總表!A:A'
+const colorIndex =
+  Math.floor(
+    Math.random() *
+    ORDER_COLORS.length
   );
 
-const startRow =
-  currentRows.length - 1;
-
-// 隨機訂單顏色
-
 const color =
-  ORDER_COLORS[
-    startRow %
-    ORDER_COLORS.length
-  ];
+  ORDER_COLORS[colorIndex];
+
+// 第一列位置
+
+let firstRowIndex = null;
 
 // 開始寫入訂單
 
 for (const row of orderItems) {
 
-  await appendRow(
+  const result = await appendRow(
     token,
     '訂單總表!A:N',
     [[
@@ -429,6 +433,27 @@ for (const row of orderItems) {
       summaryText
     ]]
   );
+  // =========================
+// 取得第一列位置
+// =========================
+
+if (firstRowIndex === null) {
+
+  const updatedRange =
+    result.updates.updatedRange;
+
+  // 例如：
+  // 訂單總表!A5:N5
+
+  const match =
+    updatedRange.match(/A(\d+):/);
+
+  if (match) {
+
+    firstRowIndex =
+      Number(match[1]) - 1;
+  }
+}
 }
 
 // =========================
@@ -438,8 +463,8 @@ for (const row of orderItems) {
 await colorRows(
   token,
   0,
-  startRow,
-  startRow + orderItems.length + 1,
+  firstRowIndex,
+  firstRowIndex + orderItems.length,
   color
 );
 
