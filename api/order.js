@@ -101,6 +101,45 @@ async function appendRow(token, range, values) {
     body: JSON.stringify({ values })
   });
 }
+async function colorRows(
+  token,
+  sheetId,
+  startRow,
+  endRow,
+  color
+) {
+
+  const url =
+    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
+
+  await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + token,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      requests: [
+        {
+          repeatCell: {
+            range: {
+              sheetId: sheetId,
+              startRowIndex: startRow,
+              endRowIndex: endRow
+            },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: color
+              }
+            },
+            fields:
+              'userEnteredFormat.backgroundColor'
+          }
+        }
+      ]
+    })
+  });
+}
 
 async function generateOrderId(token, deliveryType) {
   const now = new Date();
@@ -164,7 +203,14 @@ export default async function handler(req, res) {
     // =========================
     // 商品規格設定
     // =========================
-
+    
+const ORDER_COLORS = [
+  { red: 1, green: 0.95, blue: 0.95 }, // 粉
+  { red: 0.95, green: 0.98, blue: 1 }, // 藍
+  { red: 0.95, green: 1, blue: 0.95 }, // 綠
+  { red: 1, green: 0.98, blue: 0.9 }, // 黃
+  { red: 0.97, green: 0.95, blue: 1 } // 紫
+];
 const specs = [
   {
     key: 'spec0',
@@ -310,8 +356,41 @@ const summaryText =
   specSummary.join('、');
 
 // =========================
+// 檢查庫存
+// =========================
+
+if (totalUsed > remainStock) {
+
+  return res.status(400).json({
+    status: 'error',
+    message: '庫存不足'
+  });
+}
+
+// =========================
 // 寫入訂單總表
 // =========================
+
+// 取得目前列數
+
+const currentRows =
+  await readRange(
+    token,
+    '訂單總表!A:A'
+  );
+
+const startRow =
+  currentRows.length;
+
+// 隨機訂單顏色
+
+const color =
+  ORDER_COLORS[
+    startRow %
+    ORDER_COLORS.length
+  ];
+
+// 開始寫入訂單
 
 for (const row of orderItems) {
 
@@ -352,16 +431,18 @@ for (const row of orderItems) {
   );
 }
 
-      // =========================
-      // 檢查庫存
-      // =========================
+// =========================
+// 自動標色
+// =========================
 
-      if (totalUsed > remainStock) {
-        return res.status(400).json({
-          status: 'error',
-          message: '庫存不足'
-        });
-      }
+await colorRows(
+  token,
+  0,
+  startRow - 1,
+  startRow - 1 + orderItems.length,
+  color
+);
+
 
       // =========================
       // 更新庫存
