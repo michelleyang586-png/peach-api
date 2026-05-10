@@ -165,38 +165,38 @@ export default async function handler(req, res) {
     // 商品規格設定
     // =========================
 
-    const specs = [
-      {
-        key: 'spec0',
-        name: '特2顆',
-        unit: 2,
-        price: 120
-      },
-      {
-        key: 'spec1',
-        name: '特4顆',
-        unit: 4,
-        price: 220
-      },
-      {
-        key: 'spec2',
-        name: '禮盒大6顆',
-        unit: 6,
-        price: 360
-      },
-      {
-        key: 'spec3',
-        name: '禮盒大8顆',
-        unit: 8,
-        price: 480
-      },
-      {
-        key: 'spec4',
-        name: '家庭盒中16顆',
-        unit: 16,
-        price: 760
-      }
-    ];
+const specs = [
+  {
+    key: 'spec0',
+    name: '特2顆',
+    unit: 2,
+    price: 150
+  },
+  {
+    key: 'spec1',
+    name: '特4顆',
+    unit: 4,
+    price: 200
+  },
+  {
+    key: 'spec2',
+    name: '禮盒大6顆',
+    unit: 6,
+    price: 500
+  },
+  {
+    key: 'spec3',
+    name: '禮盒大8顆',
+    unit: 8,
+    price: 450
+  },
+  {
+    key: 'spec4',
+    name: '家庭盒中16顆',
+    unit: 16,
+    price: 400
+  }
+];
 
     // =========================
     // 讀取庫存
@@ -339,10 +339,26 @@ export default async function handler(req, res) {
       // LINE通知
       // =========================
 
-      const shipping =
-        deliveryType === '宅配'
-          ? 200
-          : 0;
+let shipping = 0;
+
+if (deliveryType === '宅配') {
+
+  let totalBoxes = 0;
+
+  for (const item of specs) {
+
+    const qty =
+      parseInt(req.query[item.key]) || 0;
+
+    totalBoxes += qty;
+  }
+
+  // 兩盒一件
+  const shippingUnits =
+    Math.ceil(totalBoxes / 2);
+
+  shipping = shippingUnits * 290;
+}
 
       const productAmount =
         amt - shipping;
