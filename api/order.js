@@ -380,7 +380,7 @@ const currentRows =
   );
 
 const startRow =
-  currentRows.length;
+  currentRows.length - 1;
 
 // 隨機訂單顏色
 
@@ -438,8 +438,8 @@ for (const row of orderItems) {
 await colorRows(
   token,
   0,
-  startRow - 1,
-  startRow - 1 + orderItems.length,
+  startRow,
+  startRow + orderItems.length,
   color
 );
 
