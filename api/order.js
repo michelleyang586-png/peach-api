@@ -647,7 +647,7 @@ if (deliveryType === '宅配') {
 }
 function manualQty(idx, value) {
 
-  qtys[idx] = Math.max(0, Number(value) || 0);
+  qtys[idx] = Math.max(0, parseInt(value) || 0);
 
   document.getElementById('qty-' + idx).value =
     qtys[idx];
