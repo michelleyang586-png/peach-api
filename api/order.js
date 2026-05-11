@@ -636,4 +636,12 @@ if (deliveryType === '宅配') {
     });
 
   }
+  function testPush() {
+
+  const userId = "Uf86482255e83a7bcd1b70e70a50aef76";
+
+  const message = "LINE 自動通知測試成功 🎉";
+
+  sendLineMessage(userId, message);
+
 }
