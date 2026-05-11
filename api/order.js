@@ -635,9 +635,13 @@ if (deliveryType === '宅配') {
       message: err.message
     });
 
-  }
-  636     });
-637
-638   }      ← 這是 catch 的結尾
-639
-640 }        ← 這是 handler 函式的結尾（新加的）
+  } catch (err) {
+
+      return res.status(500).json({
+        status: 'error',
+        message: err.message
+      });
+
+    }
+
+}
