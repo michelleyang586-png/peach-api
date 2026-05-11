@@ -645,18 +645,32 @@ if (deliveryType === '宅配') {
   sendLineMessage(userId, message);
 
 }
-function manualQty(idx, value) {
+<script>
 
-  qtys[idx] = Math.max(0, parseInt(value) || 0);
+function manualQty(idx,value){
 
-  document.getElementById('qty-' + idx).value =
-    qtys[idx];
+  qtys[idx] = Math.max(
+    0,
+    parseInt(value) || 0
+  );
 
-  document.getElementById('spec-card-' + idx).className =
+  document.getElementById(
+    'qty-' + idx
+  ).value = qtys[idx];
+
+  document.getElementById(
+    'spec-card-' + idx
+  ).className =
     'spec-card' +
-    (SPECS[idx].pickupOnly ? ' pickup-only' : '') +
-    (qtys[idx] > 0 ? ' has-qty' : '');
+    (SPECS[idx].pickupOnly
+      ? ' pickup-only'
+      : '') +
+    (qtys[idx] > 0
+      ? ' has-qty'
+      : '');
 
   updatePriceDisplay();
 
 }
+
+</script>
