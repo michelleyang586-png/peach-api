@@ -636,41 +636,4 @@ if (deliveryType === '宅配') {
     });
 
   }
-  function testPush() {
-
-  const userId = "Uf86482255e83a7bcd1b70e70a50aef76";
-
-  const message = "LINE 自動通知測試成功 🎉";
-
-  sendLineMessage(userId, message);
-
-}
-<script>
-
-function manualQty(idx,value){
-
-  qtys[idx] = Math.max(
-    0,
-    parseInt(value) || 0
-  );
-
-  document.getElementById(
-    'qty-' + idx
-  ).value = qtys[idx];
-
-  document.getElementById(
-    'spec-card-' + idx
-  ).className =
-    'spec-card' +
-    (SPECS[idx].pickupOnly
-      ? ' pickup-only'
-      : '') +
-    (qtys[idx] > 0
-      ? ' has-qty'
-      : '');
-
-  updatePriceDisplay();
-
-}
-
-</script>
+  
