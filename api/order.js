@@ -645,3 +645,18 @@ if (deliveryType === '宅配') {
   sendLineMessage(userId, message);
 
 }
+function manualQty(idx, value) {
+
+  qtys[idx] = Math.max(0, Number(value) || 0);
+
+  document.getElementById('qty-' + idx).value =
+    qtys[idx];
+
+  document.getElementById('spec-card-' + idx).className =
+    'spec-card' +
+    (SPECS[idx].pickupOnly ? ' pickup-only' : '') +
+    (qtys[idx] > 0 ? ' has-qty' : '');
+
+  updatePriceDisplay();
+
+}
