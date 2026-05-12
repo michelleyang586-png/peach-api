@@ -244,7 +244,6 @@ export default async function handler(req, res) {
           '❄️【餘有榮焉 訂單確認】\n' +
           '━━━━━━━━━━━━━━━\n' +
           '📋 訂單編號：' + orderId + '\n' +
-          'LINE帳號：' + lineName + '\n' +
           '👤 訂購人：' + actualName + '\n' +
           '📞 電話：' + phone + '\n' +
           '━━━━━━━━━━━━━━━\n' +
