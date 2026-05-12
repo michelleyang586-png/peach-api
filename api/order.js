@@ -93,26 +93,6 @@ async function sendLine(message) {
     body: JSON.stringify({ to: ADMIN_USER_ID, messages: [{ type: 'text', text: message }] })
   });
 }
-async function sendCustomerLine(userId, message) {
-  if (!userId) return;
-
-  await fetch('https://api.line.me/v2/bot/message/push', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + LINE_TOKEN
-    },
-    body: JSON.stringify({
-      to: userId,
-      messages: [
-        {
-          type: 'text',
-          text: message
-        }
-      ]
-    })
-  });
-}
 
 const ORDER_COLORS = [
   { red: 1,    green: 0.85, blue: 0.85 },
@@ -151,16 +131,7 @@ export default async function handler(req, res) {
     }
 
     if (action === 'order') {
-      const {
-        lineName,
-        recipientName,
-        lineUserId,
-        phone,
-        deliveryType,
-        amount,
-        address,
-        note
-      } = req.query;
+      const { lineName, recipientName, phone, deliveryType, amount, address, note } = req.query;
       const actualName = recipientName || lineName;
       const amt = parseInt(amount) || 0;
       const timestamp = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
@@ -234,26 +205,6 @@ export default async function handler(req, res) {
         '付款：' + (deliveryType === '宅配' ? '⏳ 等待匯款' : '貨到付款');
 
       await sendLine(msg);
-      const customerMsg =
-        '🍑【餘有榮焉 訂單確認】\n' +
-        '━━━━━━━━━━━━━━━\n' +
-        '📋 訂單編號：' + orderId + '\n' +
-        '👤 訂購人：' + actualName + '\n' +
-        '📞 電話：' + phone + '\n' +
-        '━━━━━━━━━━━━━━━\n' +
-        '🛍️ 訂購內容：\n' +
-        specSummary.join('\n') + '\n' +
-        '━━━━━━━━━━━━━━━\n' +
-        '🚚 取貨方式：' + deliveryType + '\n' +
-        '💰 總金額：NT$ ' + amt + '\n' +
-        (deliveryType === '宅配'
-          ? '📦 收件地址：' + address + '\n'
-          : '') +
-        (note ? '📝 備註：' + note + '\n' : '') +
-        '━━━━━━━━━━━━━━━\n' +
-        '感謝您的訂購 🙏';
-
-    await sendCustomerLine(lineUserId, customerMsg);
       return res.json({ status: 'success', orderId, totalUsed, remainStock: newRemain });
     }
 
