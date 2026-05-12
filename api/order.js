@@ -1,6 +1,7 @@
 const LINE_TOKEN = '2pgUy78YYeH/bf+gL4MyCWxiQYA2XtFUPzWwIigkRj3/JBHy5Ee6Z92uOBkTYgo9kZYp5mBCfLybgd9VVLLb7hTPqb9VE2Q2d1lYMVPV3euPtDKYEuinsN0LcuxXCtpm9MIS9dLqvVphxhCTETYZmAdB04t89/1O/w1cDnyilFU=';
 const ADMIN_USER_ID = 'Uf86482255e83a7bcd1b70e70a50aef76';
 const SPREADSHEET_ID = '1gKxDE7T_XUt2yPWXsagBQC8FYF0xQVD3jVmdi8dqF7I';
+const PICKUP_ADDRESS = '新竹縣尖石鄉梅花村 XX 號（每日 08:00–17:00）';
 
 async function getAccessToken() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -86,11 +87,22 @@ async function generateOrderId(token, deliveryType) {
   return `${todayPrefix}-${seq}`;
 }
 
+// ── 推播給管理員
 async function sendLine(message) {
   await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + LINE_TOKEN },
     body: JSON.stringify({ to: ADMIN_USER_ID, messages: [{ type: 'text', text: message }] })
+  });
+}
+
+// ── 推播給顧客
+async function sendLineToCustomer(userId, message) {
+  if (!userId) return;
+  await fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + LINE_TOKEN },
+    body: JSON.stringify({ to: userId, messages: [{ type: 'text', text: message }] })
   });
 }
 
@@ -138,7 +150,7 @@ export default async function handler(req, res) {
       const orderId = await generateOrderId(token, deliveryType);
 
       let totalUsed = 0;
-      let specSummary = [];
+      let specSummary = [];  // 陣列，後面各自用 join 轉成需要的格式
       let orderItems = [];
 
       for (const item of specs) {
@@ -149,7 +161,7 @@ export default async function handler(req, res) {
         orderItems.push({ item, qty, itemAmount: qty * item.price });
       }
 
-      const summaryText = specSummary.join('、');
+      const summaryText = specSummary.join('、');  // 給 Sheet 用
 
       if (totalUsed > remainStock) {
         return res.status(400).json({ status: 'error', message: '庫存不足' });
@@ -180,6 +192,7 @@ export default async function handler(req, res) {
       const newRemain = totalStock - newSold;
       await writeRange(token, '庫存控制!B2:C2', [[newSold, newRemain]]);
 
+      // ── 運費計算
       let shipping = 0;
       if (deliveryType === '宅配') {
         const totalBoxes = specs.reduce((sum, item) => sum + (parseInt(req.query[item.key]) || 0), 0);
@@ -188,14 +201,18 @@ export default async function handler(req, res) {
 
       const productAmount = amt - shipping;
       const emoji = deliveryType === '宅配' ? '❄️' : '🏪';
-      const msg =
+      const noteText = (note || '').trim() ? '\n📝 備註：' + note : '';
+      const specLines = specSummary.join('\n');  // 給 LINE 訊息用，每項換行
+
+      // ── 管理員通知
+      const adminMsg =
         '🍑 新訂單！\n' +
         '訂單編號：' + orderId + '\n' +
         'LINE帳號：' + lineName + '\n' +
         '收件人：' + actualName + '\n' +
         '電話：' + phone + '\n' +
         '取貨方式：' + emoji + ' ' + deliveryType + '\n' +
-        '規格：' + specSummary.join('、') + '\n' +
+        '規格：' + summaryText + '\n' +
         '使用顆數：' + totalUsed + '顆\n' +
         '商品金額：NT$ ' + productAmount + '\n' +
         (deliveryType === '宅配' ? '運費：NT$ ' + shipping + '\n' : '') +
@@ -204,10 +221,58 @@ export default async function handler(req, res) {
         (note ? '備註：' + note + '\n' : '') +
         '付款：' + (deliveryType === '宅配' ? '⏳ 等待匯款' : '貨到付款');
 
-      await sendLine(msg);
+      // ── 顧客通知
+      let customerMsg;
+      if (deliveryType === '自取') {
+        customerMsg =
+          '🍑【餘有榮焉 訂單確認】\n' +
+          '━━━━━━━━━━━━━━━\n' +
+          '📋 訂單編號：' + orderId + '\n' +
+          '👤 訂購人：' + actualName + '\n' +
+          '📞 電話：' + phone + '\n' +
+          '━━━━━━━━━━━━━━━\n' +
+          '🛍️ 訂購內容：\n' + specLines + '\n' +
+          '━━━━━━━━━━━━━━━\n' +
+          '🏪 取貨方式：現場自取\n' +
+          '📍 自取地點：' + PICKUP_ADDRESS + '\n' +
+          '💰 應付金額：NT$ ' + amt + '（貨到付款）' +
+          noteText + '\n' +
+          '━━━━━━━━━━━━━━━\n' +
+          '感謝訂購！如有問題請直接回覆訊息 🙏';
+      } else {
+        customerMsg =
+          '❄️【餘有榮焉 訂單確認】\n' +
+          '━━━━━━━━━━━━━━━\n' +
+          '📋 訂單編號：' + orderId + '\n' +
+          '👤 訂購人：' + actualName + '\n' +
+          '📞 電話：' + phone + '\n' +
+          '━━━━━━━━━━━━━━━\n' +
+          '🛍️ 訂購內容：\n' + specLines + '\n' +
+          '━━━━━━━━━━━━━━━\n' +
+          '🚚 取貨方式：黑貓冷藏宅配\n' +
+          '📦 收件地址：' + address + '\n' +
+          '💴 商品金額：NT$ ' + productAmount + '\n' +
+          '🚛 運費：NT$ ' + shipping + '\n' +
+          '💰 應付總金額：NT$ ' + amt +
+          noteText + '\n' +
+          '━━━━━━━━━━━━━━━\n' +
+          '🏦【匯款資訊】\n' +
+          '銀行：中華郵政（700）\n' +
+          '帳號：02910910200312\n' +
+          '⚠️ 請於訂購後 48 小時內完成匯款\n' +
+          '✅ 匯款後請回覆此訊息告知，依匯款順序出貨\n' +
+          '━━━━━━━━━━━━━━━\n' +
+          '感謝訂購！如有問題請直接回覆訊息 🙏';
+      }
+
+      // ── 發送通知（兩者都不阻斷主流程）
+      await sendLine(adminMsg);
+      await sendLineToCustomer(req.query.lineUserId || '', customerMsg);
+
       return res.json({ status: 'success', orderId, totalUsed, remainStock: newRemain });
     }
 
+    // action 不是 order 時，回傳庫存資訊
     return res.json({ totalStock, soldStock, remainStock, specs });
 
   } catch (err) {
