@@ -1,7 +1,7 @@
 const LINE_TOKEN = '2pgUy78YYeH/bf+gL4MyCWxiQYA2XtFUPzWwIigkRj3/JBHy5Ee6Z92uOBkTYgo9kZYp5mBCfLybgd9VVLLb7hTPqb9VE2Q2d1lYMVPV3euPtDKYEuinsN0LcuxXCtpm9MIS9dLqvVphxhCTETYZmAdB04t89/1O/w1cDnyilFU=';
 const ADMIN_USER_ID = 'Uf86482255e83a7bcd1b70e70a50aef76';
 const SPREADSHEET_ID = '1gKxDE7T_XUt2yPWXsagBQC8FYF0xQVD3jVmdi8dqF7I';
-const PICKUP_ADDRESS = '新竹縣尖石鄉梅花村 XX 號（每日 08:00–17:00）';
+const PICKUP_ADDRESS = '苗栗縣公館鄉館東村和東街46號（每日 09:00–17:00）';
 
 async function getAccessToken() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -244,6 +244,7 @@ export default async function handler(req, res) {
           '❄️【餘有榮焉 訂單確認】\n' +
           '━━━━━━━━━━━━━━━\n' +
           '📋 訂單編號：' + orderId + '\n' +
+          'LINE帳號：' + lineName + '\n' +
           '👤 訂購人：' + actualName + '\n' +
           '📞 電話：' + phone + '\n' +
           '━━━━━━━━━━━━━━━\n' +
@@ -260,7 +261,7 @@ export default async function handler(req, res) {
           '銀行：中華郵政（700）\n' +
           '帳號：02910910200312\n' +
           '⚠️ 請於訂購後 48 小時內完成匯款\n' +
-          '✅ 匯款後請回覆此訊息告知，依匯款順序出貨\n' +
+          '✅ 匯款後請回覆此訊息告知{後五碼}，將依匯款順序出貨\n' +
           '━━━━━━━━━━━━━━━\n' +
           '感謝訂購！如有問題請直接回覆訊息 🙏';
       }
