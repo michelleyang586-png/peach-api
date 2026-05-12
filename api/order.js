@@ -73,7 +73,7 @@ async function colorRows(token, sheetId, startRow, endRow, color) {
   });
 }
 
-async function generateOrderId(token, deliveryType) {
+async function async function generateOrderId(token, deliveryType) {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(2);
   const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -81,9 +81,19 @@ async function generateOrderId(token, deliveryType) {
   const dateStr = yy + mm + dd;
   const prefix = deliveryType === '宅配' ? 'D' : 'S';
   const todayPrefix = prefix + dateStr;
+
   const rows = await readRange(token, '訂單總表!A:A');
-  const todayCount = rows.filter(r => r[0] && r[0].startsWith(todayPrefix)).length;
-  const seq = String(todayCount + 1).padStart(3, '0');
+
+  // 找當天最大序號 +1，刪單不影響、並發也不易重複
+  let maxSeq = 0;
+  for (const r of rows) {
+    if (!r[0] || !r[0].startsWith(todayPrefix)) continue;
+    const parts = r[0].split('-');
+    const seq = parseInt(parts[1], 10);
+    if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+  }
+
+  const seq = String(maxSeq + 1).padStart(3, '0');
   return `${todayPrefix}-${seq}`;
 }
 
