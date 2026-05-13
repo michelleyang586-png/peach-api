@@ -73,7 +73,7 @@ async function colorRows(token, sheetId, startRow, endRow, color) {
   });
 }
 
-async function async function generateOrderId(token, deliveryType) {
+async function generateOrderId(token, deliveryType) {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(2);
   const mm = String(now.getMonth() + 1).padStart(2, '0');
