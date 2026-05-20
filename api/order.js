@@ -3,6 +3,10 @@ const ADMIN_USER_ID = 'Uf86482255e83a7bcd1b70e70a50aef76';
 const SPREADSHEET_ID = '1gKxDE7T_XUt2yPWXsagBQC8FYF0xQVD3jVmdi8dqF7I';
 const PICKUP_ADDRESS = '苗栗縣公館鄉館東村和東街46號（每日 09:00–17:00）';
 
+// ── Telegram 設定（管理員通知用）
+const TELEGRAM_TOKEN = '8667366687:AAE8B2mgPmiFUVo1VfOSoCJ5EjGwayaI7J0';
+const TELEGRAM_CHAT_ID = '7588402543';
+
 async function getAccessToken() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const rawKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
@@ -84,7 +88,6 @@ async function generateOrderId(token, deliveryType) {
 
   const rows = await readRange(token, '訂單總表!A:A');
 
-  // 找當天最大序號 +1，刪單不影響、並發也不易重複
   let maxSeq = 0;
   for (const r of rows) {
     if (!r[0] || !r[0].startsWith(todayPrefix)) continue;
@@ -97,16 +100,19 @@ async function generateOrderId(token, deliveryType) {
   return `${todayPrefix}-${seq}`;
 }
 
-// ── 推播給管理員
-async function sendLine(message) {
-  await fetch('https://api.line.me/v2/bot/message/push', {
+// ── 管理員通知改用 Telegram（免費無上限）
+async function sendTelegram(message) {
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + LINE_TOKEN },
-    body: JSON.stringify({ to: ADMIN_USER_ID, messages: [{ type: 'text', text: message }] })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: TELEGRAM_CHAT_ID,
+      text: message
+    })
   });
 }
 
-// ── 推播給顧客
+// ── 推播給顧客（仍使用 LINE）
 async function sendLineToCustomer(userId, message) {
   if (!userId) return;
   await fetch('https://api.line.me/v2/bot/message/push', {
@@ -160,7 +166,7 @@ export default async function handler(req, res) {
       const orderId = await generateOrderId(token, deliveryType);
 
       let totalUsed = 0;
-      let specSummary = [];  // 陣列，後面各自用 join 轉成需要的格式
+      let specSummary = [];
       let orderItems = [];
 
       for (const item of specs) {
@@ -171,7 +177,7 @@ export default async function handler(req, res) {
         orderItems.push({ item, qty, itemAmount: qty * item.price });
       }
 
-      const summaryText = specSummary.join('、');  // 給 Sheet 用
+      const summaryText = specSummary.join('、');
 
       if (totalUsed > remainStock) {
         return res.status(400).json({ status: 'error', message: '庫存不足' });
@@ -212,9 +218,9 @@ export default async function handler(req, res) {
       const productAmount = amt - shipping;
       const emoji = deliveryType === '宅配' ? '❄️' : '🏪';
       const noteText = (note || '').trim() ? '\n📝 備註：' + note : '';
-      const specLines = specSummary.join('\n');  // 給 LINE 訊息用，每項換行
+      const specLines = specSummary.join('\n');
 
-      // ── 管理員通知
+      // ── 管理員通知（Telegram）
       const adminMsg =
         '🍑 新訂單！\n' +
         '訂單編號：' + orderId + '\n' +
@@ -231,7 +237,7 @@ export default async function handler(req, res) {
         (note ? '備註：' + note + '\n' : '') +
         '付款：' + (deliveryType === '宅配' ? '⏳ 等待匯款' : '貨到付款');
 
-      // ── 顧客通知
+      // ── 顧客通知（LINE）
       let customerMsg;
       if (deliveryType === '自取') {
         customerMsg =
@@ -275,14 +281,13 @@ export default async function handler(req, res) {
           '感謝訂購！如有問題請直接回覆訊息 🙏';
       }
 
-      // ── 發送通知（兩者都不阻斷主流程）
-      await sendLine(adminMsg);
-      await sendLineToCustomer(req.query.lineUserId || '', customerMsg);
+      // ── 發送通知
+      await sendTelegram(adminMsg);                              // 管理員 → Telegram（免費）
+      await sendLineToCustomer(req.query.lineUserId || '', customerMsg);  // 顧客 → LINE
 
       return res.json({ status: 'success', orderId, totalUsed, remainStock: newRemain });
     }
 
-    // action 不是 order 時，回傳庫存資訊
     return res.json({ totalStock, soldStock, remainStock, specs });
 
   } catch (err) {
