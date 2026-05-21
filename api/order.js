@@ -100,7 +100,7 @@ async function generateOrderId(token, deliveryType) {
   return `${todayPrefix}-${seq}`;
 }
 
-// ── 管理員通知改用 Telegram（免費無上限）
+// ── 管理員通知（Telegram）
 async function sendTelegram(message) {
   await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: 'POST',
@@ -112,15 +112,15 @@ async function sendTelegram(message) {
   });
 }
 
-// ── 推播給顧客（仍使用 LINE）
-async function sendLineToCustomer(userId, message) {
-  if (!userId) return;
-  await fetch('https://api.line.me/v2/bot/message/push', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + LINE_TOKEN },
-    body: JSON.stringify({ to: userId, messages: [{ type: 'text', text: message }] })
-  });
-}
+// ── 推播給顧客（LINE）— 已暫停，月免費額度已用完
+// async function sendLineToCustomer(userId, message) {
+//   if (!userId) return;
+//   await fetch('https://api.line.me/v2/bot/message/push', {
+//     method: 'POST',
+//     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + LINE_TOKEN },
+//     body: JSON.stringify({ to: userId, messages: [{ type: 'text', text: message }] })
+//   });
+// }
 
 const ORDER_COLORS = [
   { red: 1,    green: 0.85, blue: 0.85 },
@@ -237,53 +237,12 @@ export default async function handler(req, res) {
         (note ? '備註：' + note + '\n' : '') +
         '付款：' + (deliveryType === '宅配' ? '⏳ 等待匯款' : '貨到付款');
 
-      // ── 顧客通知（LINE）
-      let customerMsg;
-      if (deliveryType === '自取') {
-        customerMsg =
-          '🍑【餘有榮焉 訂單確認】\n' +
-          '━━━━━━━━━━━━━━━\n' +
-          '📋 訂單編號：' + orderId + '\n' +
-          '👤 訂購人：' + actualName + '\n' +
-          '📞 電話：' + phone + '\n' +
-          '━━━━━━━━━━━━━━━\n' +
-          '🛍️ 訂購內容：\n' + specLines + '\n' +
-          '━━━━━━━━━━━━━━━\n' +
-          '🏪 取貨方式：現場自取\n' +
-          '📍 自取地點：' + PICKUP_ADDRESS + '\n' +
-          '💰 應付金額：NT$ ' + amt + '（貨到付款）' +
-          noteText + '\n' +
-          '━━━━━━━━━━━━━━━\n' +
-          '感謝訂購！如有問題請直接回覆訊息 🙏';
-      } else {
-        customerMsg =
-          '❄️【餘有榮焉 訂單確認】\n' +
-          '━━━━━━━━━━━━━━━\n' +
-          '📋 訂單編號：' + orderId + '\n' +
-          '👤 訂購人：' + actualName + '\n' +
-          '📞 電話：' + phone + '\n' +
-          '━━━━━━━━━━━━━━━\n' +
-          '🛍️ 訂購內容：\n' + specLines + '\n' +
-          '━━━━━━━━━━━━━━━\n' +
-          '🚚 取貨方式：黑貓冷藏宅配\n' +
-          '📦 收件地址：' + address + '\n' +
-          '💴 商品金額：NT$ ' + productAmount + '\n' +
-          '🚛 運費：NT$ ' + shipping + '\n' +
-          '💰 應付總金額：NT$ ' + amt +
-          noteText + '\n' +
-          '━━━━━━━━━━━━━━━\n' +
-          '🏦【匯款資訊】\n' +
-          '銀行：渣打銀行（520）\n' +
-          '帳號：02020000492573\n' +
-          '⚠️ 請於訂購後 48 小時內完成匯款\n' +
-          '✅ 匯款後請回覆此訊息告知{後五碼}，將依匯款順序出貨\n' +
-          '━━━━━━━━━━━━━━━\n' +
-          '感謝訂購！如有問題請直接回覆訊息 🙏';
-      }
+      // ── 顧客通知（LINE）— 已暫停，月免費額度已用完
+      // const customerMsg = ...;
+      // await sendLineToCustomer(req.query.lineUserId || '', customerMsg);
 
-      // ── 發送通知
-      await sendTelegram(adminMsg);                              // 管理員 → Telegram（免費）
-      await sendLineToCustomer(req.query.lineUserId || '', customerMsg);  // 顧客 → LINE
+      // ── 發送管理員通知
+      await sendTelegram(adminMsg);
 
       return res.json({ status: 'success', orderId, totalUsed, remainStock: newRemain });
     }
