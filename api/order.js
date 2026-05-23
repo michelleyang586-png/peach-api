@@ -190,7 +190,7 @@ export default async function handler(req, res) {
       let firstRowIndex = null;
       for (const row of orderItems) {
         const result = await appendRow(token, '訂單總表!A:N', [[
-          orderId, timestamp, lineName, actualName, phone,
+          orderId, timestamp, lineName, actualName, "'" + phone,
           row.item.name, deliveryType, row.qty, row.itemAmount,
           address || '自取', note || '',
           deliveryType === '宅配' ? '待匯款' : '貨到付款',
