@@ -3,9 +3,10 @@ const ADMIN_USER_ID = 'Uf86482255e83a7bcd1b70e70a50aef76';
 const SPREADSHEET_ID = '1gKxDE7T_XUt2yPWXsagBQC8FYF0xQVD3jVmdi8dqF7I';
 const PICKUP_ADDRESS = '苗栗縣公館鄉館東村和東街46號（每日 09:00–17:00）';
 
-// ── Telegram 設定（管理員通知用）
-const TELEGRAM_TOKEN = '8667366687:AAE8B2mgPmiFUVo1VfOSoCJ5EjGwayaI7J0';
-const TELEGRAM_CHAT_ID = '7588402543';
+// ── Telegram 設定
+const TELEGRAM_TOKEN   = '8667366687:AAE8B2mgPmiFUVo1VfOSoCJ5EjGwayaI7J0';
+const TELEGRAM_CHAT_ID = '7588402543';       // 管理員（你）
+const TELEGRAM_CHAT_ID_2 = '8991514370';    // 小幫手巧玲
 
 async function getAccessToken() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -87,7 +88,6 @@ async function generateOrderId(token, deliveryType) {
   const todayPrefix = prefix + dateStr;
 
   const rows = await readRange(token, '訂單總表!A:A');
-
   let maxSeq = 0;
   for (const r of rows) {
     if (!r[0] || !r[0].startsWith(todayPrefix)) continue;
@@ -95,18 +95,17 @@ async function generateOrderId(token, deliveryType) {
     const seq = parseInt(parts[1], 10);
     if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
   }
-
   const seq = String(maxSeq + 1).padStart(3, '0');
   return `${todayPrefix}-${seq}`;
 }
 
-// ── 管理員通知（Telegram）
-async function sendTelegram(message) {
+// ── 發送 Telegram 通知（支援指定 chat_id）
+async function sendTelegram(message, chatId) {
   await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
+      chat_id: chatId || TELEGRAM_CHAT_ID,
       text: message
     })
   });
@@ -187,10 +186,13 @@ export default async function handler(req, res) {
       const uniqueOrders = [...new Set(rows.slice(1).map(r => r[0]).filter(Boolean))];
       const color = ORDER_COLORS[uniqueOrders.length % ORDER_COLORS.length];
 
+      // 電話加單引號，讓 Sheets 保留開頭的 0
+      const phoneForSheet = "'" + phone;
+
       let firstRowIndex = null;
       for (const row of orderItems) {
         const result = await appendRow(token, '訂單總表!A:N', [[
-          orderId, timestamp, lineName, actualName, "'" + phone,
+          orderId, timestamp, lineName, actualName, phoneForSheet,
           row.item.name, deliveryType, row.qty, row.itemAmount,
           address || '自取', note || '',
           deliveryType === '宅配' ? '待匯款' : '貨到付款',
@@ -217,10 +219,8 @@ export default async function handler(req, res) {
 
       const productAmount = amt - shipping;
       const emoji = deliveryType === '宅配' ? '❄️' : '🏪';
-      const noteText = (note || '').trim() ? '\n📝 備註：' + note : '';
-      const specLines = specSummary.join('\n');
 
-      // ── 管理員通知（Telegram）
+      // ── 管理員通知訊息
       const adminMsg =
         '🍑 新訂單！\n' +
         '訂單編號：' + orderId + '\n' +
@@ -237,12 +237,12 @@ export default async function handler(req, res) {
         (note ? '備註：' + note + '\n' : '') +
         '付款：' + (deliveryType === '宅配' ? '⏳ 等待匯款' : '貨到付款');
 
-      // ── 顧客通知（LINE）— 已暫停，月免費額度已用完
-      // const customerMsg = ...;
-      // await sendLineToCustomer(req.query.lineUserId || '', customerMsg);
+      // ── 發送 Telegram 通知給管理員和小幫手
+      await sendTelegram(adminMsg);                        // 管理員
+      await sendTelegram(adminMsg, TELEGRAM_CHAT_ID_2);   // 小幫手巧玲
 
-      // ── 發送管理員通知
-      await sendTelegram(adminMsg);
+      // ── 顧客通知（LINE）— 已暫停，月免費額度已用完
+      // await sendLineToCustomer(req.query.lineUserId || '', customerMsg);
 
       return res.json({ status: 'success', orderId, totalUsed, remainStock: newRemain });
     }
@@ -252,4 +252,3 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ status: 'error', message: err.message });
   }
-}
