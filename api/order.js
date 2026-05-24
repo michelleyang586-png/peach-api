@@ -249,6 +249,8 @@ export default async function handler(req, res) {
 
     return res.json({ totalStock, soldStock, remainStock, specs });
 
+  
   } catch (err) {
     return res.status(500).json({ status: 'error', message: err.message });
   }
+}
