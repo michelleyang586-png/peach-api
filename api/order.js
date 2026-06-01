@@ -111,15 +111,15 @@ async function sendTelegram(message, chatId) {
   });
 }
 
-// ── 推播給顧客（LINE）— 已暫停，月免費額度已用完
-// async function sendLineToCustomer(userId, message) {
-//   if (!userId) return;
-//   await fetch('https://api.line.me/v2/bot/message/push', {
-//     method: 'POST',
-//     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + LINE_TOKEN },
-//     body: JSON.stringify({ to: userId, messages: [{ type: 'text', text: message }] })
-//   });
-// }
+// ── 推播給顧客（LINE）
+async function sendLineToCustomer(userId, message) {
+  if (!userId) return;
+  await fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + LINE_TOKEN },
+    body: JSON.stringify({ to: userId, messages: [{ type: 'text', text: message }] })
+  });
+}
 
 const ORDER_COLORS = [
   { red: 1,    green: 0.85, blue: 0.85 },
@@ -241,15 +241,26 @@ export default async function handler(req, res) {
       await sendTelegram(adminMsg);                        // 管理員
       await sendTelegram(adminMsg, TELEGRAM_CHAT_ID_2);   // 小幫手巧玲
 
-      // ── 顧客通知（LINE）— 已暫停，月免費額度已用完
-      // await sendLineToCustomer(req.query.lineUserId || '', customerMsg);
+      // ── 顧客通知（LINE）
+      const customerMsg =
+        '🍑 您的訂單已成立！\n\n' +
+        '訂單編號：' + orderId + '\n' +
+        '訂購品項：' + summaryText + '\n' +
+        (deliveryType === '宅配'
+          ? '商品金額：NT$ ' + productAmount + '\n運費：NT$ ' + shipping + '\n總金額：NT$ ' + amt + '\n\n' +
+            '請於 48 小時內完成匯款\n' +
+            '🏦 中國信託（822）\n帳號：901-561-135830\n匯款後請告知後五碼，將依匯款順序出貨 🚚'
+          : '金額：NT$ ' + amt + '\n\n' +
+            '付款方式：現場取貨付款 或 先行轉帳\n' +
+            '🏦 中國信託（822）\n帳號：901-561-135830') + '\n\n' +
+        '感謝您的訂購，我們會盡快為您準備 ❤️';
+      await sendLineToCustomer(req.query.lineUserId || '', customerMsg);
 
       return res.json({ status: 'success', orderId, totalUsed, remainStock: newRemain });
     }
 
     return res.json({ totalStock, soldStock, remainStock, specs });
 
-  
   } catch (err) {
     return res.status(500).json({ status: 'error', message: err.message });
   }
